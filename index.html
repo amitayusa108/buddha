@@ -9,7 +9,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700;900&display=swap" rel="stylesheet">
     
     <!-- PWA Meta Tags for iOS Web App -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -258,6 +258,17 @@
                     <button onclick="applyNewParams()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 text-xs font-bold text-white rounded-xl transition-all shadow-lg shadow-emerald-500/10 active-scale">
                         儲存並重新篩選個股
                     </button>
+
+                    <!-- iOS PWA 強制清除快取按鈕 -->
+                    <div class="border-t border-gray-800/80 pt-4 mt-4">
+                        <button onclick="forceUpdateApp()" class="w-full py-3 bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/30 text-xs font-bold text-rose-400 rounded-xl transition-all active-scale flex items-center justify-center space-x-1.5">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                            <span>⚡ 強制清除 iOS 快取並更新</span>
+                        </button>
+                        <p class="text-[10px] text-gray-500 mt-1.5 text-center leading-relaxed">
+                            若在 GitHub 覆蓋了最新代碼，請按此強迫 iPhone 從伺服器下載最新版網頁。
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -277,7 +288,6 @@
             kd: 40
         };
 
-        // 重新設計 mockStocks 成純台股權值股 (15檔)
         const mockStocks = [
             { code: "2330", name: "台積電", price: 1030, change: 0.0, type: "semiconductor" },
             { code: "2454", name: "聯發科", price: 1210, change: 0.0, type: "ic" },
@@ -324,7 +334,6 @@
             }
         }
 
-        // 強效處理 TWSE 的混亂漲跌字串格式（清洗逗號、▲▼符號、處理正負數）
         function parseChangeValue(changeStr, closePrice) {
             if (!changeStr) return 0;
             let cleanStr = changeStr.replace(/,/g, '').trim();
@@ -372,7 +381,7 @@
                             low: low,
                             close: close,
                             change: changeVal,
-                            volume: Math.round(volume / 1000) // 轉換成張數 (1張=1000股)
+                            volume: Math.round(volume / 1000)
                         };
                     }
                 }
@@ -404,7 +413,6 @@
             }
         }
 
-        // 倒推歷史日K走勢序列：以真實今日價格與漲幅為最後一根 K 線基礎，重構合理的 60 日歷史軌跡
         function generateHistoricalData(stock, strategyType) {
             let basePrice = stock.price;
             let data = [];
@@ -510,7 +518,6 @@
             return max;
         }
 
-        // 策略核心篩選器
         function filterStocks(strategy) {
             let matches = [];
             
@@ -570,7 +577,6 @@
                 }
             });
 
-            // 補救防空機制：若今日無完全符合的股票，強推 3 檔指標，保證不讓使用者看到空畫面
             if (matches.length === 0) {
                 for (let i = 0; i < 3; i++) {
                     let stock = mockStocks[i];
@@ -696,7 +702,6 @@
                 符合：${stock.reason.substring(0, 32)}...
             `;
 
-            // 設定指標詳情
             const latestBar = stock.history[stock.history.length-1];
             document.getElementById('indicator-volume').innerText = `${latestBar.volume.toLocaleString()} 張`;
             document.getElementById('indicator-vol-ratio').innerText = `比5日均量暴增 ${stock.volRatio.toFixed(1)} 倍`;
@@ -872,8 +877,26 @@
             switchStrategy(currentStrategy);
         }
 
+        // ⚡ iOS PWA 強制重整清除快取之核心演算法
+        function forceUpdateApp() {
+            // 產生毫秒級時間戳，將其動態新增至網址參數，使 WebKit 判定為新網址而繞過本機快取
+            const timestamp = Date.now();
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('update_v', timestamp);
+            
+            const btn = document.querySelector('button[onclick="forceUpdateApp()"]');
+            if (btn) {
+                btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 animate-spin mr-1.5"></i>正在強制清除快取...`;
+                lucide.createIcons();
+            }
+            
+            setTimeout(() => {
+                // 強制導向，觸發重整
+                window.location.replace(currentUrl.toString());
+            }, 800);
+        }
+
         window.onload = function() {
-            // 初始化拉取證交所真實數據
             fetchRealTimeData();
             
             document.body.addEventListener('touchmove', function(e) {
